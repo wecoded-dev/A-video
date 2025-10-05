@@ -171,6 +171,12 @@ kbd {
   padding: 2px 6px;
 }
 
+/* Task list checkboxes */
+.markdown-body input[type="checkbox"] {
+  accent-color: #fff;
+  width: 16px; height: 16px; margin-right: .4rem; vertical-align: middle;
+}
+
 /* Fancy ring animation target */
 .ring-pulse {
   position: relative;

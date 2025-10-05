@@ -11,49 +11,56 @@
   const $paste = document.getElementById('btn-paste');
   const $scrollTop = document.getElementById('btn-scroll-top');
 
-  // Smooth scroll via Lenis
-  const lenis = new Lenis({
+  // Smooth scroll via Lenis (guarded)
+  const lenis = window.Lenis ? new Lenis({
     wheelMultiplier: 0.9,
     smoothWheel: true,
     duration: 1.1
-  });
-  function raf(time){ lenis.raf(time); requestAnimationFrame(raf); }
+  }) : null;
+  function raf(time){ if (lenis && lenis.raf) lenis.raf(time); requestAnimationFrame(raf); }
   requestAnimationFrame(raf);
 
-  // Three.js delightful black/white wireframe sculpture
-  const bgCanvas = document.getElementById('bg-canvas');
-  const renderer = new THREE.WebGLRenderer({ canvas: bgCanvas, antialias: true, alpha: true });
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-  const scene = new THREE.Scene();
-  const camera = new THREE.PerspectiveCamera(55, window.innerWidth / window.innerHeight, 0.1, 100);
-  camera.position.set(0, 0, 6);
+  // Three.js delightful black/white wireframe sculpture (guarded)
+  let renderer, scene, camera, mesh, points;
+  try {
+    if (window.THREE) {
+      const bgCanvas = document.getElementById('bg-canvas');
+      renderer = new THREE.WebGLRenderer({ canvas: bgCanvas, antialias: true, alpha: true });
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+      scene = new THREE.Scene();
+      camera = new THREE.PerspectiveCamera(55, window.innerWidth / window.innerHeight, 0.1, 100);
+      camera.position.set(0, 0, 6);
 
-  const geometry = new THREE.IcosahedronGeometry(2.4, 2);
-  const material = new THREE.MeshBasicMaterial({ color: 0xffffff, wireframe: true, transparent: true, opacity: 0.22 });
-  const mesh = new THREE.Mesh(geometry, material);
-  scene.add(mesh);
+      const geometry = new THREE.IcosahedronGeometry(2.4, 2);
+      const material = new THREE.MeshBasicMaterial({ color: 0xffffff, wireframe: true, transparent: true, opacity: 0.22 });
+      mesh = new THREE.Mesh(geometry, material);
+      scene.add(mesh);
 
-  const pointsGeom = new THREE.IcosahedronGeometry(2.4, 3);
-  const pointsMat = new THREE.PointsMaterial({ color: 0xffffff, size: 0.012, transparent: true, opacity: 0.6 });
-  const points = new THREE.Points(pointsGeom, pointsMat);
-  scene.add(points);
+      const pointsGeom = new THREE.IcosahedronGeometry(2.4, 3);
+      const pointsMat = new THREE.PointsMaterial({ color: 0xffffff, size: 0.012, transparent: true, opacity: 0.6 });
+      points = new THREE.Points(pointsGeom, pointsMat);
+      scene.add(points);
 
-  const resize = () => {
-    const w = window.innerWidth, h = window.innerHeight;
-    renderer.setSize(w, h, false);
-    camera.aspect = w / h; camera.updateProjectionMatrix();
-  };
-  window.addEventListener('resize', resize); resize();
+      const resize = () => {
+        const w = window.innerWidth, h = window.innerHeight;
+        renderer.setSize(w, h, false);
+        camera.aspect = w / h; camera.updateProjectionMatrix();
+      };
+      window.addEventListener('resize', resize); resize();
 
-  let t = 0;
-  (function animate(){
-    t += 0.005;
-    mesh.rotation.x = Math.sin(t*0.7)*0.12 + 0.2;
-    mesh.rotation.y = t*0.6;
-    points.rotation.copy(mesh.rotation);
-    renderer.render(scene, camera);
-    requestAnimationFrame(animate);
-  })();
+      let t = 0;
+      (function animate(){
+        t += 0.005;
+        if (mesh && points) {
+          mesh.rotation.x = Math.sin(t*0.7)*0.12 + 0.2;
+          mesh.rotation.y = t*0.6;
+          points.rotation.copy(mesh.rotation);
+        }
+        renderer.render(scene, camera);
+        requestAnimationFrame(animate);
+      })();
+    }
+  } catch (_) { /* background optional */ }
 
   // Markdown-It configuration
   const md = window.markdownit({
@@ -69,25 +76,28 @@
         return `<pre><code>${md.utils.escapeHtml(str)}</code></pre>`;
       }
     }
-  })
-  .use(window.markdownitEmoji)
-  .use(window.markdownitFootnote)
-  .use(window.markdownitSub)
-  .use(window.markdownitSup)
-  .use(window.markdownitMark)
-  .use(window.markdownitIns)
-  .use(window.markdownitDeflist)
-  .use(window.markdownItAttrs || window.markdownitAttrs)
+  });
+  const maybeUse = (plugin, ...args) => { if (plugin) md.use(plugin, ...args); };
+  maybeUse(window.markdownitEmoji);
+  maybeUse(window.markdownitFootnote);
+  maybeUse(window.markdownitSub);
+  maybeUse(window.markdownitSup);
+  maybeUse(window.markdownitMark);
+  maybeUse(window.markdownitIns);
+  maybeUse(window.markdownitDeflist);
+  maybeUse(window.markdownItAttrs || window.markdownitAttrs);
   // Containers for callouts
-  .use(window.markdownitContainer, 'info')
-  .use(window.markdownitContainer, 'tip')
-  .use(window.markdownitContainer, 'warning')
-  .use(window.markdownitContainer, 'success')
-  .use(window.markdownitContainer, 'note')
-  .use(window.markdownitTaskLists, { enabled: true, label: true, labelAfter: true })
-  .use(window.markdownItAnchor, { permalink: window.markdownItAnchor.permalink.ariaHidden({}), slugify: s => s.trim().toLowerCase().replace(/[^a-z0-9]+/g,'-') })
-  .use(window.markdownitTocDoneRight, { containerClass: 'toc', listType: 'ul' })
-  .use(window.markdownitKatex);
+  maybeUse(window.markdownitContainer, 'info');
+  maybeUse(window.markdownitContainer, 'tip');
+  maybeUse(window.markdownitContainer, 'warning');
+  maybeUse(window.markdownitContainer, 'success');
+  maybeUse(window.markdownitContainer, 'note');
+  maybeUse(window.markdownitTaskLists, { enabled: true, label: true, labelAfter: true });
+  // Anchor plugin (global is markdownitAnchor)
+  const mia = window.markdownitAnchor || window.markdownItAnchor;
+  maybeUse(mia, { permalink: mia && mia.permalink ? mia.permalink.ariaHidden({}) : undefined, slugify: s => s.trim().toLowerCase().replace(/[^a-z0-9]+/g,'-') });
+  maybeUse(window.markdownitTocDoneRight, { containerClass: 'toc', listType: 'ul' });
+  maybeUse(window.markdownitKatex);
 
   // Mermaid setup
   if (window.mermaid) {
@@ -161,14 +171,23 @@ graph TD; A[Start] --> B{Branch}; B -->|Yes| C[Do]; B -->|No| D[Skip]
   let lastRenderAt = performance.now();
   function render(){
     const started = performance.now();
-    const raw = $editor.value;
+    let raw = $editor.value;
+    // Strip YAML front matter if present
+    raw = raw.replace(/^---[\s\S]*?---\n?/, '');
 
     // Render md -> html
-    const renderedHtml = md.render(raw);
+    let renderedHtml = '';
+    try {
+      renderedHtml = md.render(raw);
+    } catch (err) {
+      renderedHtml = `<pre class="hljs">${(err && err.message) ? err.message : String(err)}</pre>`;
+    }
 
     // Sanitize
     const safe = DOMPurify.sanitize(renderedHtml, {
-      ALLOWED_ATTR: ['class', 'style', 'href', 'name', 'target', 'rel', 'id', 'aria-hidden']
+      ALLOW_DATA_ATTR: true,
+      ADD_TAGS: ['input', 'math', 'semantics', 'annotation'],
+      ADD_ATTR: ['type', 'checked', 'disabled', 'class', 'style', 'href', 'name', 'target', 'rel', 'id', 'aria-hidden']
     });
 
     // Inject
@@ -186,22 +205,21 @@ graph TD; A[Start] --> B{Branch}; B -->|Yes| C[Do]; B -->|No| D[Skip]
     if (window.mermaid) { window.mermaid.run({ querySelector: '.mermaid' }); }
 
     // Highlight code
-    if (window.hljs) { window.hljs.highlightAll(); }
+    if (window.hljs && window.hljs.highlightAll) { window.hljs.highlightAll(); }
 
     const ended = performance.now();
     $stats.textContent = `Rendered in ${Math.max(1, Math.round(ended - started))}ms • ${raw.length} chars`;
 
     // Tasteful pulse on preview using Anime.js
-    anime({
-      targets: '#preview',
-      opacity: [0.96, 1],
-      duration: 420,
-      easing: 'easeOutQuad'
-    });
+    if (window.anime) {
+      anime({ targets: '#preview', opacity: [0.96, 1], duration: 420, easing: 'easeOutQuad' });
+    }
 
     // Stagger in visible elements for premium feel
     const elems = $preview.querySelectorAll('h1,h2,h3,blockquote,pre,table,ul,ol,p,.mermaid');
-    Velocity(elems, { translateY: [0, 6], opacity: [1, 0] }, { duration: 360, stagger: 12, easing: 'easeOutCubic' });
+    if (window.Velocity) {
+      Velocity(elems, { translateY: [0, 6], opacity: [1, 0] }, { duration: 360, stagger: 12, easing: 'easeOutCubic' });
+    }
   }
 
   // Debounce keystrokes
@@ -227,16 +245,25 @@ graph TD; A[Start] --> B{Branch}; B -->|Yes| C[Do]; B -->|No| D[Skip]
 
   // Clear button
   $clear.addEventListener('click', () => {
-    Velocity($editor, { opacity: 0 }, { duration: 140, complete: () => {
+    if (window.Velocity) {
+      Velocity($editor, { opacity: 0 }, { duration: 140, complete: () => {
+        $editor.value = '';
+        Velocity($editor, { opacity: 1 }, { duration: 140 });
+        render();
+      }});
+    } else {
       $editor.value = '';
-      Velocity($editor, { opacity: 1 }, { duration: 140 });
       render();
-    }});
+    }
   });
 
   // Smooth scroll to top
   $scrollTop.addEventListener('click', () => {
-    lenis.scrollTo(0, { offset: 0, duration: 1.2, easing: t => 1 - Math.pow(1 - t, 3) });
+    if (lenis && lenis.scrollTo) {
+      lenis.scrollTo(0, { offset: 0, duration: 1.2, easing: t => 1 - Math.pow(1 - t, 3) });
+    } else {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
   });
 
   // Copy buttons
@@ -300,19 +327,23 @@ graph TD; A[Start] --> B{Branch}; B -->|Yes| C[Do]; B -->|No| D[Skip]
       document.body.appendChild(el);
     }
     el.textContent = message;
-    Velocity(el, { opacity: [1, 0], translateY: [-6, 0] }, { duration: 180, display: 'block' });
-    setTimeout(() => Velocity(el, { opacity: 0, translateY: 0 }, { duration: 250 }), 1200);
+    if (window.Velocity) {
+      Velocity(el, { opacity: [1, 0], translateY: [-6, 0] }, { duration: 180, display: 'block' });
+      setTimeout(() => Velocity(el, { opacity: 0, translateY: 0 }, { duration: 250 }), 1200);
+    }
   }
 
   // Initial entrance animation
-  Velocity(document.querySelectorAll('.panel'), { translateY: [0, 16], opacity: [1, 0] }, { duration: 480, stagger: 80, easing: 'easeOutCubic' });
+  if (window.Velocity) {
+    Velocity(document.querySelectorAll('.panel'), { translateY: [0, 16], opacity: [1, 0] }, { duration: 480, stagger: 80, easing: 'easeOutCubic' });
+  }
 
   // jQuery-powered hover micro-interactions on glassy buttons
   if (window.$) {
     $('.glassy-btn').on('mouseenter', function(){
-      anime({ targets: this, scale: 1.04, duration: 160, easing: 'easeOutQuad' });
+      if (window.anime) anime({ targets: this, scale: 1.04, duration: 160, easing: 'easeOutQuad' });
     }).on('mouseleave', function(){
-      anime({ targets: this, scale: 1.0, duration: 200, easing: 'easeOutQuad' });
+      if (window.anime) anime({ targets: this, scale: 1.0, duration: 200, easing: 'easeOutQuad' });
     });
   }
 
