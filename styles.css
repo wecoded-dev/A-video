@@ -1,0 +1,210 @@
+/*
+  Ultra Premium Markdown Previewer
+  Black & White glassmorphism aesthetic
+*/
+
+:root {
+  --bg: #0b0b0b;
+  --bg-soft: #111;
+  --fg: #fafafa;
+  --muted: #b5b5b5;
+  --glass: rgba(255, 255, 255, 0.06);
+  --glass-strong: rgba(255, 255, 255, 0.12);
+  --stroke: rgba(255, 255, 255, 0.22);
+  --ring: rgba(255, 255, 255, 0.38);
+  --shadow: 0 10px 40px rgba(0,0,0,.45), 0 2px 10px rgba(0,0,0,.35);
+}
+
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+
+body {
+  margin: 0;
+  color: var(--fg);
+  background: radial-gradient(1200px 800px at 10% 10%, #151515 0%, var(--bg) 55%, #050505 100%);
+  font-family: 'Inter', system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+  letter-spacing: .2px;
+  overflow-x: hidden;
+}
+
+.brand-title { font-family: 'Playfair Display', serif; letter-spacing: .5px; }
+
+/* Three.js canvas behind everything */
+#bg-canvas {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: 1;
+}
+
+/* Panels */
+.panel {
+  position: relative;
+  z-index: 10;
+  border-radius: 18px;
+  border: 1px solid var(--stroke);
+  background: linear-gradient(180deg, var(--glass-strong) 0%, var(--glass) 100%);
+  backdrop-filter: blur(16px) saturate(130%);
+  box-shadow: var(--shadow);
+  overflow: hidden;
+}
+
+.panel-header, .panel-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: .75rem;
+  padding: .9rem 1.1rem;
+  border-bottom: 1px solid rgba(255,255,255,.12);
+}
+.panel-footer { border-top: 1px solid rgba(255,255,255,.12); border-bottom: none; }
+
+.panel-body { padding: 0.75rem; }
+
+.glassy-btn {
+  backdrop-filter: blur(8px) saturate(150%);
+  background: rgba(255,255,255,.08);
+  border-color: rgba(255,255,255,.28) !important;
+}
+.glassy-btn:hover{ background: rgba(255,255,255,.16); }
+
+/* Editor */
+.editor-textarea {
+  width: 100%;
+  height: clamp(420px, 70vh, 74vh);
+  resize: vertical;
+  padding: 1rem 1.25rem;
+  color: var(--fg);
+  background: rgba(255,255,255,.03);
+  border: 1px solid rgba(255,255,255,.18);
+  outline: none;
+  border-radius: 14px;
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,.04);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+  line-height: 1.6;
+}
+.editor-textarea:focus {
+  box-shadow: 0 0 0 3px var(--ring), inset 0 0 0 1px rgba(255,255,255,.08);
+}
+
+/* Preview */
+#preview-wrapper { overflow: auto; }
+#preview {
+  padding: 1rem 1.25rem;
+  min-height: clamp(420px, 70vh, 74vh);
+}
+
+.markdown-body {
+  color: var(--fg);
+  --md-muted: var(--muted);
+}
+
+.markdown-body h1,.markdown-body h2,.markdown-body h3,.markdown-body h4,.markdown-body h5,.markdown-body h6{
+  font-family: 'Playfair Display', serif;
+  letter-spacing: .4px;
+}
+.markdown-body h1{ font-size: 2.2rem; }
+.markdown-body h2{ font-size: 1.8rem; }
+.markdown-body h3{ font-size: 1.5rem; }
+
+.markdown-body p, .markdown-body li, .markdown-body td, .markdown-body th { color: var(--fg); }
+.markdown-body blockquote {
+  border-left: 3px solid rgba(255,255,255,.35);
+  background: rgba(255,255,255,.05);
+  padding: .75rem 1rem;
+  color: var(--muted);
+  margin: 1rem 0;
+}
+
+.markdown-body a { color: #fff; text-decoration-color: rgba(255,255,255,.35); }
+
+.markdown-body pre { background: rgba(0,0,0,.5); border: 1px solid rgba(255,255,255,.18); border-radius: 12px; }
+.markdown-body code { color: #fff; }
+
+.markdown-body .toc { padding: .5rem .75rem; border: 1px solid rgba(255,255,255,.18); border-radius: 10px; background: rgba(255,255,255,.04); }
+
+/* Callout containers */
+.markdown-body .info, .markdown-body .tip, .markdown-body .warning, .markdown-body .success, .markdown-body .note {
+  border: 1px solid rgba(255,255,255,.22);
+  background: rgba(255,255,255,.05);
+  border-radius: 12px;
+  padding: .75rem .9rem;
+  margin: 1rem 0;
+}
+.markdown-body .info { border-color: rgba(255,255,255,.28); }
+.markdown-body .tip { border-color: rgba(255,255,255,.34); }
+.markdown-body .warning { border-color: rgba(255,255,255,.42); }
+.markdown-body .success { border-color: rgba(255,255,255,.30); }
+.markdown-body .note { border-color: rgba(255,255,255,.26); }
+
+.markdown-body .info::before,
+.markdown-body .tip::before,
+.markdown-body .warning::before,
+.markdown-body .success::before,
+.markdown-body .note::before{
+  display:inline-block; margin-right:.5rem; color: #fff; opacity:.75;
+}
+.markdown-body .info::before{ content: "ⓘ"; }
+.markdown-body .tip::before{ content: "✓"; }
+.markdown-body .warning::before{ content: "!"; }
+.markdown-body .success::before{ content: "★"; }
+.markdown-body .note::before{ content: "✧"; }
+
+.markdown-body table {
+  width: 100%;
+  border-collapse: collapse;
+  overflow: hidden;
+  border: 1px solid rgba(255,255,255,.18);
+}
+.markdown-body th, .markdown-body td {
+  border: 1px solid rgba(255,255,255,.18);
+  padding: .5rem .75rem;
+}
+.markdown-body tr:nth-child(2n){ background: rgba(255,255,255,.04); }
+
+kbd {
+  background: #000;
+  border: 1px solid rgba(255,255,255,.25);
+  box-shadow: inset 0 -2px rgba(255,255,255,.1);
+  border-radius: 6px;
+  padding: 2px 6px;
+}
+
+/* Fancy ring animation target */
+.ring-pulse {
+  position: relative;
+}
+.ring-pulse::after {
+  content: "";
+  position: absolute; inset: -2px;
+  border-radius: 16px;
+  border: 2px solid rgba(255,255,255,.3);
+  opacity: 0;
+  transition: opacity .2s ease;
+}
+
+.ring-pulse:hover::after, .ring-pulse.dragover::after, .ring-pulse:focus-within::after {
+  opacity: 1;
+  box-shadow: inset 0 0 0 6px rgba(255,255,255,.06);
+}
+
+/* Scrollbar */
+*::-webkit-scrollbar{ width: 10px; }
+*::-webkit-scrollbar-thumb{ background: rgba(255,255,255,.22); border-radius: 8px; }
+*::-webkit-scrollbar-track{ background: rgba(255,255,255,.06); }
+
+/* Shimmer accent */
+.panel::before{
+  content:""; position:absolute; inset:0; pointer-events:none;
+  background: radial-gradient(120px 60px at 0% 0%, rgba(255,255,255,.2), transparent 60%),
+              radial-gradient(200px 120px at 100% 0%, rgba(255,255,255,.08), transparent 60%),
+              radial-gradient(200px 120px at 0% 100%, rgba(255,255,255,.06), transparent 60%);
+  opacity:.55;
+}
+
+/* Small screens */
+@media (max-width: 576px) {
+  .panel-body { padding: .5rem; }
+  #preview, .editor-textarea { min-height: 56vh; }
+}
