@@ -62,42 +62,91 @@
     }
   } catch (_) { /* background optional */ }
 
-  // Markdown-It configuration
-  const md = window.markdownit({
-    html: true,
-    linkify: true,
-    typographer: true,
-    highlight: function (str, lang) {
-      try {
-        // Use highlight.js auto if language missing
-        const res = (lang && window.hljs.getLanguage(lang)) ? window.hljs.highlight(str, { language: lang }).value : window.hljs.highlightAuto(str).value;
-        return `<pre><code class="hljs">${res}</code></pre>`;
-      } catch (e) {
-        return `<pre><code>${md.utils.escapeHtml(str)}</code></pre>`;
+  // Markdown renderer (markdown-it if available, otherwise graceful fallback)
+  let md;
+  if (window.markdownit) {
+    md = window.markdownit({
+      html: true,
+      linkify: true,
+      typographer: true,
+      highlight: function (str, lang) {
+        try {
+          const res = (lang && window.hljs && window.hljs.getLanguage && window.hljs.getLanguage(lang))
+            ? window.hljs.highlight(str, { language: lang }).value
+            : (window.hljs && window.hljs.highlightAuto ? window.hljs.highlightAuto(str).value : str);
+          return `<pre><code class="hljs">${res}</code></pre>`;
+        } catch (e) {
+          const esc = (typeof md !== 'undefined' && md.utils && md.utils.escapeHtml) ? md.utils.escapeHtml(str) : String(str).replace(/[&<>]/g, s => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[s]));
+          return `<pre><code>${esc}</code></pre>`;
+        }
       }
-    }
-  });
-  const maybeUse = (plugin, ...args) => { if (plugin) md.use(plugin, ...args); };
-  maybeUse(window.markdownitEmoji);
-  maybeUse(window.markdownitFootnote);
-  maybeUse(window.markdownitSub);
-  maybeUse(window.markdownitSup);
-  maybeUse(window.markdownitMark);
-  maybeUse(window.markdownitIns);
-  maybeUse(window.markdownitDeflist);
-  maybeUse(window.markdownItAttrs || window.markdownitAttrs);
-  // Containers for callouts
-  maybeUse(window.markdownitContainer, 'info');
-  maybeUse(window.markdownitContainer, 'tip');
-  maybeUse(window.markdownitContainer, 'warning');
-  maybeUse(window.markdownitContainer, 'success');
-  maybeUse(window.markdownitContainer, 'note');
-  maybeUse(window.markdownitTaskLists, { enabled: true, label: true, labelAfter: true });
-  // Anchor plugin (global is markdownitAnchor)
-  const mia = window.markdownitAnchor || window.markdownItAnchor;
-  maybeUse(mia, { permalink: mia && mia.permalink ? mia.permalink.ariaHidden({}) : undefined, slugify: s => s.trim().toLowerCase().replace(/[^a-z0-9]+/g,'-') });
-  maybeUse(window.markdownitTocDoneRight, { containerClass: 'toc', listType: 'ul' });
-  maybeUse(window.markdownitKatex);
+    });
+    const maybeUse = (plugin, ...args) => { if (plugin && md && md.use) md.use(plugin, ...args); };
+    maybeUse(window.markdownitEmoji);
+    maybeUse(window.markdownitFootnote);
+    maybeUse(window.markdownitSub);
+    maybeUse(window.markdownitSup);
+    maybeUse(window.markdownitMark);
+    maybeUse(window.markdownitIns);
+    maybeUse(window.markdownitDeflist);
+    maybeUse(window.markdownItAttrs || window.markdownitAttrs);
+    // Containers for callouts
+    maybeUse(window.markdownitContainer, 'info');
+    maybeUse(window.markdownitContainer, 'tip');
+    maybeUse(window.markdownitContainer, 'warning');
+    maybeUse(window.markdownitContainer, 'success');
+    maybeUse(window.markdownitContainer, 'note');
+    maybeUse(window.markdownitTaskLists, { enabled: true, label: true, labelAfter: true });
+    // Anchor plugin (global is markdownitAnchor)
+    const mia = window.markdownitAnchor || window.markdownItAnchor;
+    maybeUse(mia, { permalink: mia && mia.permalink ? mia.permalink.ariaHidden({}) : undefined, slugify: s => s.trim().toLowerCase().replace(/[^a-z0-9]+/g,'-') });
+    maybeUse(window.markdownitTocDoneRight, { containerClass: 'toc', listType: 'ul' });
+    maybeUse(window.markdownitKatex);
+  } else {
+    // Very small fallback renderer (headings, lists, emphasis, code, links, blockquotes, tasks, code fences incl. mermaid)
+    const escapeHtml = (s) => String(s).replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+    const basicMarkdown = (input) => {
+      let out = input.replace(/\r\n?/g, '\n');
+      // Code fences first
+      const codeBlocks = [];
+      out = out.replace(/```(\w+)?\n([\s\S]*?)```/g, (m, lang, code) => {
+        const idx = codeBlocks.length;
+        if ((lang || '').toLowerCase() === 'mermaid') {
+          codeBlocks.push(`<div class="mermaid">${escapeHtml(code)}</div>`);
+        } else {
+          codeBlocks.push(`<pre><code class="hljs">${escapeHtml(code)}</code></pre>`);
+        }
+        return `__CODEBLOCK_${idx}__`;
+      });
+      // Blockquotes
+      out = out.replace(/^(> .+)(?:\n>.*)*/gm, (m) => `<blockquote>${m.replace(/^>\s?/gm,'').trim()}</blockquote>`);
+      // Headings
+      out = out.replace(/^######\s?(.*)$/gm, '<h6>$1</h6>')
+               .replace(/^#####\s?(.*)$/gm, '<h5>$1</h5>')
+               .replace(/^####\s?(.*)$/gm, '<h4>$1</h4>')
+               .replace(/^###\s?(.*)$/gm, '<h3>$1</h3>')
+               .replace(/^##\s?(.*)$/gm, '<h2>$1</h2>')
+               .replace(/^#\s?(.*)$/gm, '<h1>$1</h1>');
+      // Horizontal rule
+      out = out.replace(/^\s*(?:---|\*\*\*|___)\s*$/gm, '<hr/>');
+      // Task lists
+      out = out.replace(/^\s*[-*]\s+\[( |x|X)\]\s+(.*)$/gmi, (m, chk, text) => `<li><input type="checkbox" ${/x/i.test(chk)?'checked':''} disabled/> ${text}</li>`);
+      // Bulleted lists
+      out = out.replace(/^(?:\s*[-*]\s+.*(?:\n|$))+?/gm, (m) => `<ul>${m.replace(/^\s*[-*]\s+(.*)$/gm, '<li>$1</li>')}</ul>`);
+      // Inline
+      out = out.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+               .replace(/\*(.+?)\*/g, '<em>$1</em>')
+               .replace(/~~(.+?)~~/g, '<del>$1</del>')
+               .replace(/`([^`]+?)`/g, (m, c) => `<code>${escapeHtml(c)}</code>`) 
+               .replace(/\[(.+?)\]\((.+?)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>');
+      // Paragraphs (very naive)
+      out = out.split(/\n{2,}/).map(b => /^\s*<\/?(h\d|ul|ol|pre|blockquote|table|hr|div)/i.test(b.trim()) ? b : `<p>${b.replace(/\n/g,'<br/>')}</p>`).join('\n');
+      // Restore code blocks
+      out = out.replace(/__CODEBLOCK_(\d+)__/g, (_, i) => codeBlocks[Number(i)] || '');
+      return out;
+    };
+    md = { render: basicMarkdown, utils: { escapeHtml } };
+  }
 
   // Mermaid setup
   if (window.mermaid) {
